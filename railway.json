@@ -1,0 +1,11 @@
+{
+  "build": {
+    "builder": "nixpacks",
+    "config": {
+      "buildCommand": "cd Apps/server && npm install && npm run prisma:generate && npm run build"
+    }
+  },
+  "deploy": {
+    "startCommand": "cd Apps/server && npm start"
+  }
+}
