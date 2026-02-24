@@ -246,15 +246,31 @@ CURRENT BUILD PHASE
 
 
 
-PHASE 1: Authentication only.
+PHASE 2: Integration layer (Stripe & GoHighLevel).
 
 
 
-Do NOT build:
+Build incrementally toward full integration:
 
-\- Stripe integration
+\- OAuth and secure API key storage
 
-\- GoHighLevel integration
+\- Webhook handling and idempotent processing
+
+\- Daily sync with rate-limit and retry logic
+
+\- Pagination and efficient data fetching
+
+\- 90-day historical backfill on first connection
+
+\- Normalized revenue and CRM metrics storage
+
+\- Multi-tenant isolation with HTTPS-only communication
+
+\- No sensitive data (PCI, SMS, email bodies, notes) in storage
+
+
+
+Do NOT build yet:
 
 \- Snapshot engine
 
@@ -269,10 +285,6 @@ Do NOT build:
 \- Password reset
 
 \- Onboarding wizard
-
-
-
-Only authentication.
 
 
 
@@ -549,6 +561,320 @@ Authentication phase is complete when:
 \- Code compiles without warnings
 
 \- No unused code
+
+
+
+------------------------------------------------------------
+
+PHASE 2: INTEGRATION SPECIFICATION
+
+------------------------------------------------------------
+
+
+
+DATABASE SCHEMA
+
+------------------------------------------------------------
+
+
+
+Add to User model:
+
+\- stripeAccountId (nullable)
+
+\- ghlAccountId (nullable)
+
+
+
+Create tables:
+
+\- IntegrationCredential (encrypted API keys/tokens)
+
+\- StripeCustomer (id, email, created)
+
+\- StripeCharge (amount, currency, status, created, userId)
+
+\- StripeInvoice (amountPaid, status, created, userId)
+
+\- StripeRefund (amount, created, userId)
+
+\- StripeSubscription (status, created, userId)
+
+\- GHLContact (id, created)
+
+\- GHLLead (timestamp, userId)
+
+\- GHLDeal (status, pipelineStage, value, closeDate, userId)
+
+\- GHLAppointment (date, status, userId)
+
+\- WebhookLog (provider, eventId, processed, createdAt)
+
+
+
+Add normalized aggregates:
+
+\- RevenueAggregate (userId, period, totalRevenue, refunds, netRevenue, revenuePerCustomer, ltv)
+
+\- CRMAggregate (userId, period, leadsCount, appointmentsCount, showRate, dealsWon, dealValue)
+
+
+
+STRIPE INTEGRATION
+
+------------------------------------------------------------
+
+
+
+Connection:
+
+\- Secure OAuth (preferred) or encrypted API key storage
+
+\- Store tokens in IntegrationCredential with AES-256 encryption
+
+\- Validate connection on save
+
+
+
+Data Fetching:
+
+\- Fetch: customers, charges, invoices, refunds, subscriptions
+
+\- Minimum fields only (no card details, no PCI data)
+
+\- Pagination: 100 items per request
+
+\- Rate limit: 100 requests per second (Stripe limit)
+
+\- Retry: exponential backoff (3 retries max)
+
+
+
+Daily Sync Job:
+
+\- Run at configurable time (user timezone)
+
+\- Fetch last 7 days of changes (after first backfill)
+
+\- First connection: backfill 90 days
+
+\- Idempotent: skip duplicates via charge/invoice/refund ID
+
+\- Log all syncs (success/failure)
+
+
+
+Webhook Handling:
+
+\- Listen to: charge.created, charge.refunded, customer.created, invoice.created, customer.subscription.created
+
+\- Validate webhook signature
+
+\- Process idempotently (check eventId in WebhookLog)
+
+\- Acknowledge within 5 seconds
+
+
+
+Normalized Storage:
+
+\- RevenueEvent: amount, currency, status, timestamp, customerId
+
+\- RefundEvent: amount, timestamp, chargeId
+
+\- NetRevenue: charges - refunds per period
+
+\- Revenue per customer: total charges / unique customers
+
+\- LTV (realised): sum of all charges for each customer (no projections)
+
+\- Weekly/monthly aggregates: totals by period
+
+
+
+GOHLEVEL INTEGRATION
+
+------------------------------------------------------------
+
+
+
+Connection:
+
+\- Secure OAuth (if available) or encrypted API key storage
+
+\- Store tokens in IntegrationCredential with AES-256 encryption
+
+\- Validate connection on save
+
+
+
+Data Fetching:
+
+\- Fetch: contacts, leads, deals/opportunities, appointments
+
+\- Minimum fields only (no SMS, email bodies, notes, message content)
+
+\- Pagination: 100 items per request
+
+\- Rate limit: handle 429 responses with backoff
+
+\- Retry: exponential backoff (3 retries max)
+
+
+
+Daily Sync Job:
+
+\- Run at configurable time (user timezone)
+
+\- Fetch last 7 days of changes (after first backfill)
+
+\- First connection: backfill 90 days
+
+\- Idempotent: skip duplicates via contact/lead/deal ID
+
+\- Log all syncs (success/failure)
+
+
+
+Normalized Storage:
+
+\- Leads per week/month: count by period
+
+\- Appointments per week/month: count by period
+
+\- Show rate: shown/no-show by period
+
+\- Won deals: status == 'won' with value and close date
+
+\- Pipeline metrics: deals by stage
+
+
+
+SECURITY REQUIREMENTS
+
+------------------------------------------------------------
+
+
+
+\- All integration credentials encrypted at rest (AES-256)
+
+\- All API communication over HTTPS only
+
+\- No secrets exposed to frontend
+
+\- Webhook signatures validated on every request
+
+\- Separate database encryption key from JWT secret
+
+\- Idempotent webhook processing (prevent double-charges)
+
+\- Multi-tenant isolation: always filter by userId
+
+\- Rate limiting on all external API calls
+
+\- Audit log of all connection changes
+
+
+
+ACCEPTANCE CRITERIA FOR PHASE 2
+
+------------------------------------------------------------
+
+
+
+Foundation (Step 1):
+
+\- Database schema updated with integration tables
+
+\- Encryption service created (encrypt/decrypt credentials)
+
+\- IntegrationCredential model with API key storage
+
+\- User model updated with integration account IDs
+
+
+
+Stripe Connection (Step 2):
+
+\- POST /integrations/stripe/connect (OAuth or API key)
+
+\- Validate and store credentials securely
+
+\- Test connection endpoint
+
+\- Webhook endpoint listening
+
+
+
+Stripe Sync (Step 3):
+
+\- Daily sync job runs on schedule
+
+\- Fetches customers, charges, invoices, refunds
+
+\- Backfill 90 days on first connection
+
+\- Store in normalized tables
+
+\- Webhook processing for charge events
+
+
+
+Stripe Aggregates (Step 4):
+
+\- Calculate revenue per period
+
+\- Store weekly/monthly aggregates
+
+\- Compute LTV, revenue per customer, refund totals
+
+
+
+GHL Connection (Step 5):
+
+\- POST /integrations/ghl/connect (OAuth or API key)
+
+\- Validate and store credentials securely
+
+\- Test connection endpoint
+
+
+
+GHL Sync (Step 6):
+
+\- Daily sync job runs on schedule
+
+\- Fetch contacts, leads, deals, appointments
+
+\- Backfill 90 days on first connection
+
+\- Store in normalized tables
+
+
+
+GHL Aggregates (Step 7):
+
+\- Calculate leads per period
+
+\- Store weekly/monthly aggregates
+
+\- Compute show rates, won deals
+
+\- Pipeline metrics
+
+
+
+Final Polish (Step 8):
+
+\- Frontend: "Connect Stripe" and "Connect GHL" buttons
+
+\- Dashboard: show connection status
+
+\- Error handling and retry logic
+
+\- Full audit logging
+
+\- No unused code, no warnings
 
 
 

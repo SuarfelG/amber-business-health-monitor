@@ -15,18 +15,42 @@ enum UserRole {
   ADVISOR
 }
 
+enum IntegrationProvider {
+  STRIPE
+  GOHIGHLEVEL
+}
+
+enum IntegrationStatus {
+  CONNECTED
+  DISCONNECTED
+  ERROR
+}
+
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  passwordHash  String
-  name          String
-  businessName  String
-  timezone      String
-  currency      String
-  role          UserRole  @default(OWNER)
-  refreshTokens RefreshToken[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  passwordHash       String
+  name               String
+  businessName       String
+  timezone           String
+  currency           String
+  role               UserRole  @default(OWNER)
+  refreshTokens      RefreshToken[]
+  invitations        Invitation[]
+  feedback           Feedback[]
+  integrations       Integration[]
+  webhookEvents      WebhookEvent[]
+  stripeCustomers    StripeCustomer[]
+  stripeCharges      StripeCharge[]
+  stripeInvoices     StripeInvoice[]
+  stripeSubscriptions StripeSubscription[]
+  revenueMetrics     RevenueMetric[]
+  ghlContacts        GHLContact[]
+  ghlOpportunities   GHLOpportunity[]
+  ghlAppointments    GHLAppointment[]
+  crmMetrics         CRMMetric[]
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }
 
 model RefreshToken {
@@ -36,4 +60,233 @@ model RefreshToken {
   token     String    @unique
   expiresAt DateTime
   createdAt DateTime  @default(now())
+}
+
+model Invitation {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String     @unique
+  feedback  Feedback[]
+  createdAt DateTime   @default(now())
+}
+
+model Feedback {
+  id           String     @id @default(cuid())
+  invitationId String
+  invitation   Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expertName   String
+  opinion      String
+  createdAt    DateTime   @default(now())
+}
+
+model Integration {
+  id                String              @id @default(cuid())
+  userId            String
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          IntegrationProvider
+  status            IntegrationStatus   @default(DISCONNECTED)
+  encryptedApiKey   String?
+  oauthAccessToken  String?
+  oauthRefreshToken String?
+  oauthExpiresAt    DateTime?
+  accountId         String?
+  lastSyncAt        DateTime?
+  lastSyncError     String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([userId, provider])
+  @@index([userId])
+}
+
+model WebhookEvent {
+  id             String              @id @default(cuid())
+  userId         String
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider       IntegrationProvider
+  externalId     String
+  eventType      String
+  payload        Json
+  processed      Boolean             @default(false)
+  processedAt    DateTime?
+  createdAt      DateTime            @default(now())
+
+  @@unique([provider, externalId])
+  @@index([userId, provider, processed])
+}
+
+model StripeCustomer {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  externalId      String
+  email           String?
+  name            String?
+  stripeCreatedAt DateTime
+  createdAt       DateTime @default(now())
+
+  charges         StripeCharge[]
+  subscriptions   StripeSubscription[]
+
+  @@unique([userId, externalId])
+  @@index([userId])
+}
+
+model StripeCharge {
+  id              String          @id @default(cuid())
+  userId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  externalId      String
+  customerId      String?
+  customer        StripeCustomer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  amount          Int
+  currency        String
+  status          String
+  refunded        Boolean         @default(false)
+  refundAmount    Int             @default(0)
+  stripeCreatedAt DateTime
+  createdAt       DateTime        @default(now())
+
+  @@unique([userId, externalId])
+  @@index([userId, stripeCreatedAt])
+}
+
+model StripeInvoice {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  externalId      String
+  customerId      String?
+  amountDue       Int
+  amountPaid      Int
+  currency        String
+  status          String
+  stripeCreatedAt DateTime
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, externalId])
+  @@index([userId, stripeCreatedAt])
+}
+
+model StripeSubscription {
+  id                 String         @id @default(cuid())
+  userId             String
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  externalId         String
+  customerId         String
+  customer           StripeCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  status             String
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  canceledAt         DateTime?
+  stripeCreatedAt    DateTime
+  createdAt          DateTime       @default(now())
+
+  @@unique([userId, externalId])
+  @@index([userId])
+}
+
+model RevenueMetric {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  periodStart       DateTime
+  periodEnd         DateTime
+  periodType        String
+  totalRevenue      Int
+  refundedRevenue   Int
+  netRevenue        Int
+  chargeCount       Int
+  refundCount       Int
+  customerCount     Int
+  newCustomerCount  Int
+  activeSubscriptions Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([userId, periodStart, periodType])
+  @@index([userId, periodType, periodStart])
+}
+
+model GHLContact {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  externalId    String
+  email         String?
+  phone         String?
+  firstName     String?
+  lastName      String?
+  source        String?
+  ghlCreatedAt  DateTime
+  createdAt     DateTime @default(now())
+
+  opportunities GHLOpportunity[]
+
+  @@unique([userId, externalId])
+  @@index([userId])
+}
+
+model GHLOpportunity {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  externalId      String
+  contactId       String?
+  contact         GHLContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  name            String
+  pipelineId      String?
+  pipelineStageId String?
+  status          String
+  monetaryValue   Int?
+  ghlCreatedAt    DateTime
+  closedAt        DateTime?
+  createdAt       DateTime    @default(now())
+
+  @@unique([userId, externalId])
+  @@index([userId, ghlCreatedAt])
+}
+
+model GHLAppointment {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  externalId   String
+  contactId    String?
+  title        String?
+  startTime    DateTime
+  endTime      DateTime?
+  status       String
+  ghlCreatedAt DateTime
+  createdAt    DateTime @default(now())
+
+  @@unique([userId, externalId])
+  @@index([userId, startTime])
+}
+
+model CRMMetric {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  periodStart        DateTime
+  periodEnd          DateTime
+  periodType         String
+  newLeads           Int
+  totalLeads         Int
+  appointmentsBooked Int
+  appointmentsShowed Int
+  appointmentsNoShow Int
+  showRate           Float
+  opportunitiesWon   Int
+  opportunitiesLost  Int
+  pipelineValue      Int
+  wonValue           Int
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([userId, periodStart, periodType])
+  @@index([userId, periodType, periodStart])
 }

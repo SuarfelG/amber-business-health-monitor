@@ -1,9 +1,7 @@
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { config } from '../../config';
-
-const prisma = new PrismaClient();
+import { prisma } from '../../prisma';
 
 interface RegisterInput {
   email: string;
@@ -132,14 +130,40 @@ export class AuthService {
     return user;
   }
 
-  private async generateTokens(userId: string): Promise<TokenPair> {
-    const accessToken = jwt.sign({ userId }, config.jwt.secret, {
-      expiresIn: config.jwt.accessExpiry,
+  async updateUser(userId: string, updates: {
+    name?: string;
+    businessName?: string;
+    timezone?: string;
+    currency?: string;
+  }) {
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: updates,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        businessName: true,
+        timezone: true,
+        currency: true,
+        role: true,
+        createdAt: true,
+      },
     });
 
-    const refreshToken = jwt.sign({ userId }, config.jwt.secret, {
-      expiresIn: config.jwt.refreshExpiry,
-    });
+    return user;
+  }
+
+  private async generateTokens(userId: string): Promise<TokenPair> {
+    const accessOptions: SignOptions = {
+      expiresIn: config.jwt.accessExpiry as any,
+    };
+    const accessToken = jwt.sign({ userId }, config.jwt.secret, accessOptions);
+
+    const refreshOptions: SignOptions = {
+      expiresIn: config.jwt.refreshExpiry as any,
+    };
+    const refreshToken = jwt.sign({ userId }, config.jwt.secret, refreshOptions);
 
     const decodedRefresh = jwt.decode(refreshToken) as {
       exp: number;

@@ -11,4 +11,21 @@ export const config = {
     accessExpiry: process.env.JWT_ACCESS_EXPIRY || '15m',
     refreshExpiry: process.env.JWT_REFRESH_EXPIRY || '7d',
   },
+  encryption: {
+    key: process.env.ENCRYPTION_KEY || '',
+  },
+  integrations: {
+    stripe: {
+      publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
+      secretKey: process.env.STRIPE_SECRET_KEY || '',
+      clientId: process.env.STRIPE_CLIENT_ID || '',
+      clientSecret: process.env.STRIPE_CLIENT_SECRET || '',
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+    },
+    gohighlevel: {
+      clientId: process.env.GHL_CLIENT_ID || '',
+      clientSecret: process.env.GHL_CLIENT_SECRET || '',
+      webhookSecret: process.env.GHL_WEBHOOK_SECRET || '',
+    },
+  },
 };

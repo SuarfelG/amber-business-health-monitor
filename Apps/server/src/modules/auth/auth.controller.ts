@@ -120,6 +120,35 @@ export class AuthController {
       return res.status(404).json({ error: 'User not found' });
     }
   }
+
+  async updateSettings(req: AuthRequest, res: Response) {
+    try {
+      if (!req.userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const { name, businessName, timezone, currency } = req.body;
+
+      if (!name || !businessName || !timezone || !currency) {
+        return res.status(400).json({
+          error: 'Name, business name, timezone, and currency are required',
+        });
+      }
+
+      const user = await authService.updateUser(req.userId, {
+        name,
+        businessName,
+        timezone,
+        currency,
+      });
+
+      return res.json(user);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Update failed';
+      return res.status(400).json({ error: message });
+    }
+  }
 }
 
 export const authController = new AuthController();
