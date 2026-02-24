@@ -1,9 +1,5 @@
 {
   "buildCommand": "cd Apps/web && npm install && npm run build",
   "outputDirectory": "Apps/web/dist",
-  "devCommand": "cd Apps/web && npm run dev",
-  "env": {
-    "VITE_API_URL": "@vite_api_url",
-    "VITE_STRIPE_PUBLISHABLE_KEY": "@vite_stripe_publishable_key"
-  }
+  "devCommand": "cd Apps/web && npm run dev"
 }
