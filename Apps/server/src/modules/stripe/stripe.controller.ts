@@ -43,6 +43,8 @@ export class StripeController {
         state as string
       );
 
+      console.log(`[AUDIT] userId=${req.userId} connected stripe at ${new Date().toISOString()} via oauth`);
+
       return res.json({ message: 'Stripe connected successfully' });
     } catch (err) {
       const message =
@@ -64,6 +66,9 @@ export class StripeController {
       }
 
       await stripeService.connectWithApiKey(req.userId, apiKey);
+
+      console.log(`[AUDIT] userId=${req.userId} connected stripe at ${new Date().toISOString()} via apikey`);
+
       return res.json({ message: 'Stripe connected successfully' });
     } catch (err) {
       const message =
@@ -94,6 +99,9 @@ export class StripeController {
       }
 
       await stripeService.disconnect(req.userId);
+
+      console.log(`[AUDIT] userId=${req.userId} disconnected stripe at ${new Date().toISOString()}`);
+
       return res.json({ message: 'Stripe disconnected' });
     } catch (err) {
       const message =

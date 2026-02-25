@@ -39,6 +39,8 @@ export class GHLController {
         locationId as string
       );
 
+      console.log(`[AUDIT] userId=${req.userId} connected gohighlevel at ${new Date().toISOString()} via oauth`);
+
       return res.json({ message: 'GoHighLevel connected successfully' });
     } catch (err) {
       const message =
@@ -60,6 +62,9 @@ export class GHLController {
       }
 
       await ghlService.connectWithApiKey(req.userId, apiKey, locationId);
+
+      console.log(`[AUDIT] userId=${req.userId} connected gohighlevel at ${new Date().toISOString()} via apikey`);
+
       return res.json({ message: 'GoHighLevel connected successfully' });
     } catch (err) {
       const message =
@@ -90,6 +95,9 @@ export class GHLController {
       }
 
       await ghlService.disconnect(req.userId);
+
+      console.log(`[AUDIT] userId=${req.userId} disconnected gohighlevel at ${new Date().toISOString()}`);
+
       return res.json({ message: 'GoHighLevel disconnected' });
     } catch (err) {
       const message =

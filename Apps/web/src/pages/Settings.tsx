@@ -21,6 +21,12 @@ export const Settings: React.FC = () => {
   const [stripeStatus, setStripeStatus] = useState<{ status: string; lastSyncAt?: string; connectedAt?: string } | null>(null);
   const [ghlStatus, setGHLStatus] = useState<{ status: string; lastSyncAt?: string; connectedAt?: string } | null>(null);
   const [loadingIntegrations, setLoadingIntegrations] = useState(true);
+  const [stripeSyncing, setStripeSyncing] = useState(false);
+  const [stripeDisconnecting, setStripeDisconnecting] = useState(false);
+  const [stripeSyncSuccess, setStripeSyncSuccess] = useState(false);
+  const [ghlSyncing, setGhlSyncing] = useState(false);
+  const [ghlDisconnecting, setGhlDisconnecting] = useState(false);
+  const [ghlSyncSuccess, setGhlSyncSuccess] = useState(false);
 
   useEffect(() => {
     if (user && !isLoading) {
@@ -63,6 +69,64 @@ export const Settings: React.FC = () => {
       [name]: value,
     }));
     setMessage(null);
+  };
+
+  const handleStripeSyncNow = async () => {
+    try {
+      setStripeSyncing(true);
+      await apiClient.syncStripe();
+      setStripeSyncSuccess(true);
+      setTimeout(() => setStripeSyncSuccess(false), 2000);
+      loadIntegrationStatus();
+    } catch (err) {
+      console.error('Sync failed', err);
+    } finally {
+      setStripeSyncing(false);
+    }
+  };
+
+  const handleStripeDisconnect = async () => {
+    if (!window.confirm('Are you sure you want to disconnect Stripe?')) {
+      return;
+    }
+    try {
+      setStripeDisconnecting(true);
+      await apiClient.disconnectStripe();
+      loadIntegrationStatus();
+    } catch (err) {
+      console.error('Disconnect failed', err);
+    } finally {
+      setStripeDisconnecting(false);
+    }
+  };
+
+  const handleGhlSyncNow = async () => {
+    try {
+      setGhlSyncing(true);
+      await apiClient.syncGHL();
+      setGhlSyncSuccess(true);
+      setTimeout(() => setGhlSyncSuccess(false), 2000);
+      loadIntegrationStatus();
+    } catch (err) {
+      console.error('Sync failed', err);
+    } finally {
+      setGhlSyncing(false);
+    }
+  };
+
+  const handleGhlDisconnect = async () => {
+    if (!window.confirm('Are you sure you want to disconnect GoHighLevel?')) {
+      return;
+    }
+    try {
+      setGhlDisconnecting(true);
+      await apiClient.disconnectGHL();
+      loadIntegrationStatus();
+    } catch (err) {
+      console.error('Disconnect failed', err);
+    } finally {
+      setGhlDisconnecting(false);
+    }
   };
 
 
@@ -351,22 +415,52 @@ export const Settings: React.FC = () => {
                   Loading...
                 </p>
               ) : (
-                <div className={`text-sm p-3 rounded-lg ${
-                  stripeStatus?.status === 'CONNECTED'
-                    ? isDark
-                      ? 'bg-green-500/10 text-green-300'
-                      : 'bg-green-50 text-green-700'
-                    : isDark
-                    ? 'bg-gray-800 text-gray-400'
-                    : 'bg-gray-100 text-gray-600'
-                }`}>
-                  {stripeStatus?.status === 'CONNECTED' ? 'Connected' : 'Not Connected'}
-                  {stripeStatus?.lastSyncAt && (
-                    <p className="text-xs mt-1">
-                      Last sync: {new Date(stripeStatus.lastSyncAt).toLocaleDateString()}
-                    </p>
+                <>
+                  <div className={`text-sm p-3 rounded-lg ${
+                    stripeStatus?.status === 'CONNECTED'
+                      ? isDark
+                        ? 'bg-green-500/10 text-green-300'
+                        : 'bg-green-50 text-green-700'
+                      : isDark
+                      ? 'bg-gray-800 text-gray-400'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {stripeStatus?.status === 'CONNECTED' ? 'Connected' : 'Not Connected'}
+                    {stripeStatus?.lastSyncAt && (
+                      <p className="text-xs mt-1">
+                        Last sync: {new Date(stripeStatus.lastSyncAt).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                  {stripeStatus?.status === 'CONNECTED' && (
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        onClick={handleStripeSyncNow}
+                        disabled={stripeSyncing}
+                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition ${
+                          stripeSyncSuccess
+                            ? isDark
+                              ? 'bg-green-500/20 text-green-300'
+                              : 'bg-green-50 text-green-700'
+                            : isDark
+                            ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        } disabled:opacity-50`}
+                      >
+                        {stripeSyncing ? 'Syncing...' : stripeSyncSuccess ? 'Synced' : 'Sync Now'}
+                      </button>
+                      <button
+                        onClick={handleStripeDisconnect}
+                        disabled={stripeDisconnecting}
+                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition text-red-600 hover:text-red-700 ${
+                          isDark ? 'hover:bg-red-500/10' : 'hover:bg-red-50'
+                        } disabled:opacity-50`}
+                      >
+                        {stripeDisconnecting ? 'Disconnecting...' : 'Disconnect'}
+                      </button>
+                    </div>
                   )}
-                </div>
+                </>
               )}
             </div>
 
@@ -393,22 +487,52 @@ export const Settings: React.FC = () => {
                   Loading...
                 </p>
               ) : (
-                <div className={`text-sm p-3 rounded-lg ${
-                  ghlStatus?.status === 'CONNECTED'
-                    ? isDark
-                      ? 'bg-green-500/10 text-green-300'
-                      : 'bg-green-50 text-green-700'
-                    : isDark
-                    ? 'bg-gray-800 text-gray-400'
-                    : 'bg-gray-100 text-gray-600'
-                }`}>
-                  {ghlStatus?.status === 'CONNECTED' ? 'Connected' : 'Not Connected'}
-                  {ghlStatus?.lastSyncAt && (
-                    <p className="text-xs mt-1">
-                      Last sync: {new Date(ghlStatus.lastSyncAt).toLocaleDateString()}
-                    </p>
+                <>
+                  <div className={`text-sm p-3 rounded-lg ${
+                    ghlStatus?.status === 'CONNECTED'
+                      ? isDark
+                        ? 'bg-green-500/10 text-green-300'
+                        : 'bg-green-50 text-green-700'
+                      : isDark
+                      ? 'bg-gray-800 text-gray-400'
+                      : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {ghlStatus?.status === 'CONNECTED' ? 'Connected' : 'Not Connected'}
+                    {ghlStatus?.lastSyncAt && (
+                      <p className="text-xs mt-1">
+                        Last sync: {new Date(ghlStatus.lastSyncAt).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                  {ghlStatus?.status === 'CONNECTED' && (
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        onClick={handleGhlSyncNow}
+                        disabled={ghlSyncing}
+                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition ${
+                          ghlSyncSuccess
+                            ? isDark
+                              ? 'bg-green-500/20 text-green-300'
+                              : 'bg-green-50 text-green-700'
+                            : isDark
+                            ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        } disabled:opacity-50`}
+                      >
+                        {ghlSyncing ? 'Syncing...' : ghlSyncSuccess ? 'Synced' : 'Sync Now'}
+                      </button>
+                      <button
+                        onClick={handleGhlDisconnect}
+                        disabled={ghlDisconnecting}
+                        className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition text-red-600 hover:text-red-700 ${
+                          isDark ? 'hover:bg-red-500/10' : 'hover:bg-red-50'
+                        } disabled:opacity-50`}
+                      >
+                        {ghlDisconnecting ? 'Disconnecting...' : 'Disconnect'}
+                      </button>
+                    </div>
                   )}
-                </div>
+                </>
               )}
             </div>
           </div>

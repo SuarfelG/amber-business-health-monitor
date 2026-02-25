@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTheme } from '../ThemeContext';
 import { apiClient } from '../api';
 
 export const StripeCallback: React.FC = () => {
   const navigate = useNavigate();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('Connecting Stripe...');
@@ -55,26 +58,28 @@ export const StripeCallback: React.FC = () => {
   }, [searchParams, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900">
+    <div className={`min-h-screen flex items-center justify-center transition-colors ${
+      isDark ? 'bg-black text-white' : 'bg-white text-gray-900'
+    }`}>
       <div className="text-center">
         {status === 'loading' && (
           <>
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-300">{message}</p>
+            <p className={isDark ? 'text-gray-300' : 'text-gray-600'}>{message}</p>
           </>
         )}
         {status === 'success' && (
           <>
             <div className="text-green-600 text-4xl mb-4">✓</div>
-            <p className="text-gray-900 dark:text-white font-semibold">{message}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Redirecting...</p>
+            <p className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>{message}</p>
+            <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Redirecting...</p>
           </>
         )}
         {status === 'error' && (
           <>
             <div className="text-red-600 text-4xl mb-4">✕</div>
-            <p className="text-gray-900 dark:text-white font-semibold">{message}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Redirecting to settings...</p>
+            <p className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>{message}</p>
+            <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Redirecting to settings...</p>
           </>
         )}
       </div>

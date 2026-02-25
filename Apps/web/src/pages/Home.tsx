@@ -16,7 +16,10 @@ export const Home: React.FC = () => {
   const [showIntegrationModal, setShowIntegrationModal] = useState(false);
   const [stripeMetrics, setStripeMetrics] = useState<any[]>([]);
   const [ghlMetrics, setGHLMetrics] = useState<any[]>([]);
+  const [healthScore, setHealthScore] = useState<any>(null);
   const [loadingMetrics, setLoadingMetrics] = useState(true);
+  const [stripeStatus, setStripeStatus] = useState<{ status: string } | null>(null);
+  const [ghlStatus, setGHLStatus] = useState<{ status: string } | null>(null);
 
   const isDark = theme === 'dark';
 
@@ -24,15 +27,27 @@ export const Home: React.FC = () => {
     const fetchMetrics = async () => {
       try {
         setLoadingMetrics(true);
-        const [stripeResult, ghlResult] = await Promise.all([
+        const [stripeResult, ghlResult, healthResult, stripeStatusResult, ghlStatusResult] = await Promise.all([
           apiClient.getStripeMetrics('week', 1),
           apiClient.getGHLMetrics('week', 1),
+          apiClient.getHealthScore('week'),
+          apiClient.getStripeStatus(),
+          apiClient.getGHLStatus(),
         ]);
         if (stripeResult.data) {
           setStripeMetrics(stripeResult.data);
         }
         if (ghlResult.data) {
           setGHLMetrics(ghlResult.data);
+        }
+        if (healthResult.data) {
+          setHealthScore(healthResult.data);
+        }
+        if (stripeStatusResult.data) {
+          setStripeStatus(stripeStatusResult.data as any);
+        }
+        if (ghlStatusResult.data) {
+          setGHLStatus(ghlStatusResult.data as any);
         }
       } catch (err) {
         console.error('Failed to fetch metrics', err);
@@ -169,39 +184,94 @@ export const Home: React.FC = () => {
         </div>
 
         {/* Health Status Card */}
-        <div className={`mb-16 rounded-2xl p-10 shadow-2xl hover:shadow-2xl transition duration-500 group overflow-hidden relative border ${
-          isDark
-            ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-black border-gray-700 hover:border-gray-600'
-            : 'bg-gradient-to-br from-gray-50 via-white to-gray-100 border-gray-300 hover:border-gray-400'
-        }`}>
-          <div className={`absolute inset-0 bg-gradient-to-r from-green-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-500`}></div>
+        {(() => {
+          const getStatusColor = (status: string) => {
+            switch (status) {
+              case 'GREEN':
+                return { dot: 'bg-green-500', symbol: 'text-green-500', symbol_text: '◆', border: 'border-l-green-500', bg: isDark ? 'bg-green-500/5' : 'bg-green-50' };
+              case 'YELLOW':
+                return { dot: 'bg-yellow-500', symbol: 'text-yellow-500', symbol_text: '◆', border: 'border-l-yellow-500', bg: isDark ? 'bg-yellow-500/5' : 'bg-yellow-50' };
+              case 'RED':
+                return { dot: 'bg-red-500', symbol: 'text-red-500', symbol_text: '◆', border: 'border-l-red-500', bg: isDark ? 'bg-red-500/5' : 'bg-red-50' };
+              default:
+                return { dot: 'bg-gray-500', symbol: 'text-gray-500', symbol_text: '◆', border: 'border-l-gray-500', bg: isDark ? 'bg-gray-500/5' : 'bg-gray-50' };
+            }
+          };
 
-          <div className="flex items-center justify-between relative z-10">
-            <div className="flex-1">
-              <p className={`text-xs mb-4 uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
-                Current Status
-              </p>
-              <div className="flex items-center gap-4">
-                <div className="relative flex items-center justify-center">
-                  <div className="w-5 h-5 bg-green-500 rounded-full animate-pulse"></div>
-                  <div className="absolute w-5 h-5 bg-green-500 rounded-full animate-ping opacity-75"></div>
+          const statusColor = getStatusColor(healthScore?.status || 'UNKNOWN');
+          const statusLabel = healthScore
+            ? healthScore.status === 'GREEN'
+              ? 'Everything looks good'
+              : healthScore.status === 'YELLOW'
+                ? 'Keep an eye on things'
+                : healthScore.status === 'RED'
+                  ? 'Action needed'
+                  : 'Get started'
+            : 'Loading...';
+
+          const reasons = healthScore?.reasons || [];
+          const recommendation = healthScore?.recommendation || '';
+
+          return (
+            <>
+              <div
+                className={`mb-8 rounded-2xl p-10 shadow-2xl hover:shadow-2xl transition duration-500 group overflow-hidden relative border ${
+                  isDark
+                    ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-black border-gray-700 hover:border-gray-600'
+                    : 'bg-gradient-to-br from-gray-50 via-white to-gray-100 border-gray-300 hover:border-gray-400'
+                }`}
+              >
+                <div
+                  className={`absolute inset-0 bg-gradient-to-r ${statusColor.symbol}/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-500`}
+                ></div>
+
+                <div className="flex items-center justify-between relative z-10">
+                  <div className="flex-1">
+                    <p
+                      className={`text-xs mb-4 uppercase tracking-widest ${
+                        isDark ? 'text-gray-500' : 'text-gray-600'
+                      }`}
+                    >
+                      Current Status
+                    </p>
+                    <div className="flex items-center gap-4">
+                      <div className="relative flex items-center justify-center">
+                        <div className={`w-5 h-5 ${statusColor.dot} rounded-full animate-pulse`}></div>
+                        <div
+                          className={`absolute w-5 h-5 ${statusColor.dot} rounded-full animate-ping opacity-75`}
+                        ></div>
+                      </div>
+                      <h3 className="text-4xl md:text-5xl font-light">{statusLabel}</h3>
+                    </div>
+                    <p className={`text-sm mt-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {reasons.length > 0
+                        ? reasons.join(' • ')
+                        : 'Connect integrations to see your health score'}
+                    </p>
+                  </div>
+                  <div className="text-right ml-8">
+                    <p className={`text-7xl font-light ${statusColor.symbol}`}>{statusColor.symbol_text}</p>
+                    <p className={`text-xs mt-3 ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
+                      Last updated today
+                    </p>
+                  </div>
                 </div>
-                <h3 className="text-4xl md:text-5xl font-light">
-                  Everything looks good
-                </h3>
               </div>
-              <p className={`text-sm mt-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                All metrics within healthy range • System performing optimally
-              </p>
-            </div>
-            <div className="text-right ml-8">
-              <p className="text-7xl font-light text-green-500">◆</p>
-              <p className={`text-xs mt-3 ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
-                Last updated today
-              </p>
-            </div>
-          </div>
-        </div>
+
+              {healthScore && healthScore.status !== 'UNKNOWN' && recommendation && (
+                <div className={`mb-16 rounded-xl p-5 border-l-4 ${statusColor.border} ${statusColor.bg}`}>
+                  <p className={`text-sm font-light leading-relaxed ${
+                    isDark
+                      ? healthScore.status === 'GREEN' ? 'text-green-300' : healthScore.status === 'YELLOW' ? 'text-yellow-300' : 'text-red-300'
+                      : healthScore.status === 'GREEN' ? 'text-green-700' : healthScore.status === 'YELLOW' ? 'text-yellow-700' : 'text-red-700'
+                  }`}>
+                    {recommendation}
+                  </p>
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         {/* Snapshots Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
@@ -246,9 +316,9 @@ export const Home: React.FC = () => {
                   </span>
                 </div>
                 <div className={`flex justify-between items-center pb-4 border-b ${isDark ? 'border-gray-700' : 'border-gray-300'}`}>
-                  <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Transactions</span>
+                  <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Charges</span>
                   <span className={`text-xl font-light ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                    {loadingMetrics ? '...' : stripeMetrics.length > 0 ? stripeMetrics[0].totalRevenue : '—'}
+                    {loadingMetrics ? '...' : stripeMetrics.length > 0 ? stripeMetrics[0].chargeCount : '—'}
                   </span>
                 </div>
               </div>
@@ -319,70 +389,92 @@ export const Home: React.FC = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <button
-            onClick={() => setShowIntegrationModal(true)}
-            className={`rounded-xl p-6 hover:shadow-xl transition duration-500 text-left group overflow-hidden relative border ${
-            isDark
-              ? 'bg-gradient-to-br from-gray-900 to-black border-gray-700 hover:border-gray-600'
-              : 'bg-gradient-to-br from-gray-100 to-gray-50 border-gray-300 hover:border-gray-400'
-          }`}>
-            <div className="absolute inset-0 bg-gradient-to-r from-gray-700/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-500"></div>
-            <div className="relative z-10">
-              <p className={`text-xs mb-3 uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
-                Next Step
-              </p>
-              <p className={`text-lg font-light ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                Connect integrations
-              </p>
-              <p className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
-                Set up GoHighLevel, Stripe, etc.
-              </p>
-            </div>
-          </button>
+        {(() => {
+          const isStripeConnected = stripeStatus?.status === 'CONNECTED';
+          const isGhlConnected = ghlStatus?.status === 'CONNECTED';
+          const connectedCount = (isStripeConnected ? 1 : 0) + (isGhlConnected ? 1 : 0);
 
-          <button
-            onClick={() => setShowInviteModal(true)}
-            className={`rounded-xl p-6 hover:shadow-xl transition duration-500 text-left group overflow-hidden relative border ${
-            isDark
-              ? 'bg-gradient-to-br from-gray-900 to-black border-gray-700 hover:border-gray-600'
-              : 'bg-gradient-to-br from-gray-100 to-gray-50 border-gray-300 hover:border-gray-400'
-          }`}>
-            <div className="absolute inset-0 bg-gradient-to-r from-gray-700/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-500"></div>
-            <div className="relative z-10">
-              <p className={`text-xs mb-3 uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
-                Collaboration
-              </p>
-              <p className={`text-lg font-light ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                Invite your advisor
-              </p>
-              <p className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
-                Get expert insights
-              </p>
-            </div>
-          </button>
+          let integrationLabel = 'Connect integrations';
+          let integrationDot = 'bg-gray-500';
 
-          <button
-            onClick={() => navigate('/settings')}
-            className={`rounded-xl p-6 hover:shadow-xl transition duration-500 text-left group overflow-hidden relative border ${
-            isDark
-              ? 'bg-gradient-to-br from-gray-900 to-black border-gray-700 hover:border-gray-600'
-              : 'bg-gradient-to-br from-gray-100 to-gray-50 border-gray-300 hover:border-gray-400'
-          }`}>
-            <div className="absolute inset-0 bg-gradient-to-r from-gray-700/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-500"></div>
-            <div className="relative z-10">
-              <p className={`text-xs mb-3 uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
-                Settings
-              </p>
-              <p className={`text-lg font-light ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                Manage account
-              </p>
-              <p className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
-                Timezone, currency, billing
-              </p>
+          if (connectedCount === 2) {
+            integrationLabel = 'Integrations connected ✓';
+            integrationDot = 'bg-green-500';
+          } else if (connectedCount === 1) {
+            integrationLabel = '1 of 2 integrations connected';
+            integrationDot = 'bg-yellow-500';
+          }
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <button
+                onClick={() => setShowIntegrationModal(true)}
+                className={`rounded-xl p-6 hover:shadow-xl transition duration-500 text-left group overflow-hidden relative border ${
+                isDark
+                  ? 'bg-gradient-to-br from-gray-900 to-black border-gray-700 hover:border-gray-600'
+                  : 'bg-gradient-to-br from-gray-100 to-gray-50 border-gray-300 hover:border-gray-400'
+              }`}>
+                <div className="absolute inset-0 bg-gradient-to-r from-gray-700/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                <div className="relative z-10">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className={`w-2 h-2 ${integrationDot} rounded-full`}></div>
+                    <p className={`text-xs uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
+                      Next Step
+                    </p>
+                  </div>
+                  <p className={`text-lg font-light ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    {integrationLabel}
+                  </p>
+                  <p className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
+                    Set up GoHighLevel, Stripe, etc.
+                  </p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setShowInviteModal(true)}
+                className={`rounded-xl p-6 hover:shadow-xl transition duration-500 text-left group overflow-hidden relative border ${
+                isDark
+                  ? 'bg-gradient-to-br from-gray-900 to-black border-gray-700 hover:border-gray-600'
+                  : 'bg-gradient-to-br from-gray-100 to-gray-50 border-gray-300 hover:border-gray-400'
+              }`}>
+                <div className="absolute inset-0 bg-gradient-to-r from-gray-700/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                <div className="relative z-10">
+                  <p className={`text-xs mb-3 uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
+                    Collaboration
+                  </p>
+                  <p className={`text-lg font-light ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    Invite your advisor
+                  </p>
+                  <p className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
+                    Get expert insights
+                  </p>
+                </div>
+              </button>
+
+              <button
+                onClick={() => navigate('/settings')}
+                className={`rounded-xl p-6 hover:shadow-xl transition duration-500 text-left group overflow-hidden relative border ${
+                isDark
+                  ? 'bg-gradient-to-br from-gray-900 to-black border-gray-700 hover:border-gray-600'
+                  : 'bg-gradient-to-br from-gray-100 to-gray-50 border-gray-300 hover:border-gray-400'
+              }`}>
+                <div className="absolute inset-0 bg-gradient-to-r from-gray-700/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                <div className="relative z-10">
+                  <p className={`text-xs mb-3 uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
+                    Settings
+                  </p>
+                  <p className={`text-lg font-light ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    Manage account
+                  </p>
+                  <p className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
+                    Timezone, currency, billing
+                  </p>
+                </div>
+              </button>
             </div>
-          </button>
-        </div>
+          );
+        })()}
 
         {/* Expert Feedback Section */}
         <div className="mt-16">
