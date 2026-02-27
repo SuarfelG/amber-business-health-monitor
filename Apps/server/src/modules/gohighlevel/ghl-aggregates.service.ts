@@ -116,10 +116,10 @@ export class GHLAggregatesService {
       },
     });
 
-    // Calculate show rate
+    // Calculate show rate (0-1 decimal, not percentage)
     const showRate =
       appointmentsBooked > 0
-        ? (appointmentsShowed / appointmentsBooked) * 100
+        ? appointmentsShowed / appointmentsBooked
         : 0;
 
     // Count won opportunities
