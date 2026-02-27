@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { prisma } from '../../prisma';
 import { stripeService } from './stripe.service';
 import { stripeAggregatesService } from './stripe-aggregates.service';
+import { auditService } from '../../utils/audit.service';
 
 interface SyncResult {
   customersProcessed: number;
@@ -12,7 +13,7 @@ interface SyncResult {
 }
 
 export class StripeSyncService {
-  async syncUser(userId: string, backfillDays: number = 7): Promise<SyncResult> {
+  async syncUser(userId: string, backfillDays?: number): Promise<SyncResult> {
     const result: SyncResult = {
       customersProcessed: 0,
       chargesProcessed: 0,
@@ -26,9 +27,19 @@ export class StripeSyncService {
         throw new Error('Stripe not connected');
       }
 
+      // Determine days to backfill: 90 days on first sync, 7 days on subsequent
+      let daysToBackfill = backfillDays ?? 7;
+      if (backfillDays === undefined) {
+        const integration = await prisma.integration.findUnique({
+          where: { userId_provider: { userId, provider: 'STRIPE' } },
+          select: { lastSyncAt: true },
+        });
+        daysToBackfill = integration?.lastSyncAt ? 7 : 90;
+      }
+
       const stripe = new Stripe(apiKey);
       const createdAfter = new Date();
-      createdAfter.setDate(createdAfter.getDate() - backfillDays);
+      createdAfter.setDate(createdAfter.getDate() - daysToBackfill);
 
       result.customersProcessed = await this.syncCustomers(userId, stripe, createdAfter);
       result.chargesProcessed = await this.syncCharges(userId, stripe, createdAfter);
@@ -40,6 +51,8 @@ export class StripeSyncService {
         where: { userId, provider: 'STRIPE' },
         data: { lastSyncAt: new Date(), lastSyncError: null },
       });
+
+      await auditService.logSyncCompleted(userId, 'STRIPE');
 
       // Trigger async metrics calculation
       stripeAggregatesService.calculateMetricsForUser(userId, 'week').catch((err) => {
@@ -63,6 +76,8 @@ export class StripeSyncService {
           lastSyncError: errorMsg,
         },
       });
+
+      await auditService.logSyncFailed(userId, 'STRIPE', errorMsg);
 
       return result;
     }

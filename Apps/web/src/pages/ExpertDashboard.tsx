@@ -13,6 +13,18 @@ interface User {
   createdAt: string;
 }
 
+interface HealthScore {
+  status: 'GREEN' | 'YELLOW' | 'RED' | 'UNKNOWN';
+  reasons: string[];
+  recommendation: string;
+  signals: Array<{
+    name: string;
+    status: string;
+    weight: number;
+    reason: string;
+  }>;
+}
+
 export const ExpertDashboard: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
@@ -20,6 +32,8 @@ export const ExpertDashboard: React.FC = () => {
   const isDark = theme === 'dark';
 
   const [user, setUser] = useState<User | null>(null);
+  const [weeklyScore, setWeeklyScore] = useState<HealthScore | null>(null);
+  const [monthlyScore, setMonthlyScore] = useState<HealthScore | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,6 +57,12 @@ export const ExpertDashboard: React.FC = () => {
           setError(result.error);
         } else if (result.data) {
           setUser(result.data.user);
+          if (result.data.weeklyScore) {
+            setWeeklyScore(result.data.weeklyScore);
+          }
+          if (result.data.monthlyScore) {
+            setMonthlyScore(result.data.monthlyScore);
+          }
         }
       } catch (err) {
         setError('Failed to load invitation');
@@ -176,31 +196,53 @@ export const ExpertDashboard: React.FC = () => {
             </div>
 
             {/* Health Status Card */}
-            <div className={`rounded-2xl p-8 shadow-xl border transition-colors duration-300 mb-8 ${
-              isDark
-                ? 'bg-gradient-to-br from-gray-900 to-black border-gray-700'
-                : 'bg-gradient-to-br from-gray-50 to-white border-gray-300'
-            }`}>
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className={`text-xs mb-4 uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
-                    Current Status
-                  </p>
-                  <div className="flex items-center gap-4">
-                    <div className="relative flex items-center justify-center">
-                      <div className="w-5 h-5 bg-green-500 rounded-full animate-pulse"></div>
-                      <div className="absolute w-5 h-5 bg-green-500 rounded-full animate-ping opacity-75"></div>
+            {weeklyScore ? (
+              <div className={`rounded-2xl p-8 shadow-xl border transition-colors duration-300 mb-8 ${
+                isDark
+                  ? 'bg-gradient-to-br from-gray-900 to-black border-gray-700'
+                  : 'bg-gradient-to-br from-gray-50 to-white border-gray-300'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className={`text-xs mb-4 uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-600'}`}>
+                      This Week's Status
+                    </p>
+                    <div className="flex items-center gap-4">
+                      <div className="relative flex items-center justify-center">
+                        <div className={`w-5 h-5 rounded-full animate-pulse ${
+                          weeklyScore.status === 'GREEN' ? 'bg-green-500' :
+                          weeklyScore.status === 'YELLOW' ? 'bg-yellow-500' :
+                          'bg-red-500'
+                        }`}></div>
+                        <div className={`absolute w-5 h-5 rounded-full animate-ping opacity-75 ${
+                          weeklyScore.status === 'GREEN' ? 'bg-green-500' :
+                          weeklyScore.status === 'YELLOW' ? 'bg-yellow-500' :
+                          'bg-red-500'
+                        }`}></div>
+                      </div>
+                      <h3 className="text-4xl md:text-5xl font-light">
+                        {weeklyScore.reasons.length > 0
+                          ? weeklyScore.reasons[0]
+                          : 'Healthy'}
+                      </h3>
                     </div>
-                    <h3 className="text-4xl md:text-5xl font-light">
-                      Everything looks good
-                    </h3>
+                    <p className={`text-sm mt-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {weeklyScore.reasons.join(' • ') || 'All metrics within healthy range'}
+                    </p>
                   </div>
-                  <p className={`text-sm mt-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                    All metrics within healthy range • System performing optimally
-                  </p>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className={`rounded-2xl p-8 shadow-xl border transition-colors duration-300 mb-8 ${
+                isDark
+                  ? 'bg-gradient-to-br from-gray-900 to-black border-gray-700'
+                  : 'bg-gradient-to-br from-gray-50 to-white border-gray-300'
+              }`}>
+                <p className={isDark ? 'text-gray-500' : 'text-gray-600'}>
+                  No health data available yet. Check back once they connect their integrations.
+                </p>
+              </div>
+            )}
 
             {/* Business Info */}
             <div className={`rounded-2xl p-8 shadow-xl border transition-colors duration-300 ${

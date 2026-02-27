@@ -49,6 +49,7 @@ model User {
   ghlOpportunities   GHLOpportunity[]
   ghlAppointments    GHLAppointment[]
   crmMetrics         CRMMetric[]
+  emailLogs          EmailLog[]
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 }
@@ -289,4 +290,20 @@ model CRMMetric {
 
   @@unique([userId, periodStart, periodType])
   @@index([userId, periodType, periodStart])
+}
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String
+  recipient String
+  subject   String
+  status    String   @default("sent")
+  error     String?
+  sentAt    DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([userId, type])
+  @@index([status, createdAt])
 }

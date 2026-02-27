@@ -158,6 +158,18 @@ class ApiClient {
         currency: string;
         createdAt: string;
       };
+      weeklyScore?: {
+        status: 'GREEN' | 'YELLOW' | 'RED' | 'UNKNOWN';
+        reasons: string[];
+        recommendation: string;
+        signals: Array<{ name: string; status: string; weight: number; reason: string }>;
+      };
+      monthlyScore?: {
+        status: 'GREEN' | 'YELLOW' | 'RED' | 'UNKNOWN';
+        reasons: string[];
+        recommendation: string;
+        signals: Array<{ name: string; status: string; weight: number; reason: string }>;
+      };
     }>(`/invitations/${token}`);
   }
 
@@ -288,6 +300,22 @@ class ApiClient {
       opportunitiesWon: number;
       opportunitiesPipelineValue: number;
     }>>(`/gohighlevel/metrics?period=${period}&limit=${limit}`);
+  }
+
+  async getHealthScore(period: 'week' | 'month' = 'week') {
+    return this.request<{
+      status: 'GREEN' | 'YELLOW' | 'RED' | 'UNKNOWN';
+      reasons: string[];
+      recommendation: string;
+      signals: Array<{
+        name: string;
+        status: 'GREEN' | 'YELLOW' | 'RED';
+        weight: number;
+        reason: string;
+      }>;
+      periodType: string;
+      computedAt: string;
+    }>(`/snapshot?period=${period}`);
   }
 }
 

@@ -2,6 +2,7 @@ import { createHttpClient } from '../../utils/http-client';
 import { prisma } from '../../prisma';
 import { ghlService } from './ghl.service';
 import { ghlAggregatesService } from './ghl-aggregates.service';
+import { auditService } from '../../utils/audit.service';
 
 interface SyncResult {
   contactsProcessed: number;
@@ -54,7 +55,7 @@ interface GHLListResponse<T> {
 export class GHLSyncService {
   private ghlApiBase = 'https://rest.gohighlevel.com/v1';
 
-  async syncUser(userId: string, backfillDays: number = 7): Promise<SyncResult> {
+  async syncUser(userId: string, backfillDays?: number): Promise<SyncResult> {
     const result: SyncResult = {
       contactsProcessed: 0,
       opportunitiesProcessed: 0,
@@ -69,12 +70,15 @@ export class GHLSyncService {
 
       const integration = await prisma.integration.findUnique({
         where: { userId_provider: { userId, provider: 'GOHIGHLEVEL' } },
-        select: { accountId: true },
+        select: { accountId: true, lastSyncAt: true },
       });
 
       if (!integration?.accountId) {
         throw new Error('Location ID not found');
       }
+
+      // Determine days to backfill: 90 days on first sync, 7 days on subsequent
+      let daysToBackfill = backfillDays ?? (integration.lastSyncAt ? 7 : 90);
 
       const httpClient = createHttpClient(this.ghlApiBase, {
         baseDelayMs: 1000,
@@ -83,7 +87,7 @@ export class GHLSyncService {
       });
 
       const createdAfter = new Date();
-      createdAfter.setDate(createdAfter.getDate() - backfillDays);
+      createdAfter.setDate(createdAfter.getDate() - daysToBackfill);
 
       const authHeaders = {
         Authorization: `Bearer ${apiKey}`,
@@ -116,6 +120,8 @@ export class GHLSyncService {
         data: { lastSyncAt: new Date(), lastSyncError: null },
       });
 
+      await auditService.logSyncCompleted(userId, 'GOHIGHLEVEL');
+
       // Trigger async metrics calculation
       ghlAggregatesService.calculateMetricsForUser(userId, 'week').catch((err) => {
         console.error(`Failed to calculate weekly CRM metrics for user ${userId}:`, err);
@@ -138,6 +144,8 @@ export class GHLSyncService {
           lastSyncError: errorMsg,
         },
       });
+
+      await auditService.logSyncFailed(userId, 'GOHIGHLEVEL', errorMsg);
 
       return result;
     }

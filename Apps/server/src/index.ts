@@ -7,6 +7,7 @@ import authRoutes from './modules/auth/auth.routes';
 import stripeRoutes from './modules/stripe/stripe.routes';
 import ghlRoutes from './modules/gohighlevel/ghl.routes';
 import invitationsRoutes from './modules/invitations/invitations.routes';
+import snapshotRoutes from './modules/snapshot/snapshot.routes';
 import { syncScheduler } from './jobs/sync-scheduler';
 
 const app = express();
@@ -45,6 +46,7 @@ app.use('/auth', authRoutes);
 app.use('/stripe', stripeRoutes);
 app.use('/gohighlevel', ghlRoutes);
 app.use('/invitations', invitationsRoutes);
+app.use('/snapshot', snapshotRoutes);
 
 // Diagnostic endpoint to list all registered routes
 app.get('/debug/routes', (req, res) => {
@@ -110,6 +112,7 @@ app.use((req, res) => {
       'POST /gohighlevel/connect',
       'GET /gohighlevel/status',
       'POST /gohighlevel/webhooks',
+      'GET /snapshot',
     ]
   });
 });

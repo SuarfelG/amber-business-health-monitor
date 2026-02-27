@@ -4,11 +4,6 @@ import { config } from '../../config';
 
 export interface AuthRequest extends Request {
   userId?: string;
-  body?: any;
-  cookies?: any;
-  query?: any;
-  params?: any;
-  headers?: any;
 }
 
 export const authMiddleware = (

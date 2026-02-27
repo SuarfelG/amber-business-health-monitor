@@ -200,6 +200,60 @@ One concern per file.
 
 ------------------------------------------------------------
 
+TESTING AFTER IMPLEMENTATION
+
+------------------------------------------------------------
+
+
+
+After implementing a feature:
+
+
+
+STEP 1: Verify compilation.
+
+Run `npm run build` in affected directories (server, web).
+
+Do not proceed if there are errors or warnings.
+
+
+
+STEP 2: Test in the simplest way possible.
+
+Choose ONE of:
+
+\- Review compiled code (check .js files for correct logic)
+
+\- Make simple HTTP requests to verify endpoints exist (curl, fetch)
+
+\- Check that routes are registered and respond (even if 401/errors expected)
+
+\- Verify imports/exports resolve correctly
+
+\- Inspect stdout logs for startup messages
+
+
+
+Do NOT:
+
+\- Set up complex test databases or fixtures
+
+\- Write test files or test suites
+
+\- Mock external services unless absolutely necessary
+
+\- Spend more than 5 minutes on verification
+
+
+
+If build succeeds and endpoints respond, the implementation is done.
+
+Do not over-engineer testing.
+
+
+
+------------------------------------------------------------
+
 TECH STACK
 
 ------------------------------------------------------------

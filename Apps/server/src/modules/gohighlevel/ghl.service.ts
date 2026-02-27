@@ -2,6 +2,7 @@ import { config } from '../../config';
 import { encryptionService } from '../../utils/encryption.service';
 import { prisma } from '../../prisma';
 import { createHttpClient } from '../../utils/http-client';
+import { auditService } from '../../utils/audit.service';
 
 interface OAuthState {
   userId: string;
@@ -78,6 +79,8 @@ export class GHLService {
         status: 'CONNECTED',
       },
     });
+
+    await auditService.logConnection(userId, 'GOHIGHLEVEL', locationId);
   }
 
   async connectWithApiKey(userId: string, apiKey: string, locationId: string): Promise<void> {
@@ -110,6 +113,8 @@ export class GHLService {
           status: 'CONNECTED',
         },
       });
+
+      await auditService.logConnection(userId, 'GOHIGHLEVEL', locationId);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Invalid API key';
@@ -139,6 +144,11 @@ export class GHLService {
   }
 
   async disconnect(userId: string): Promise<void> {
+    const integration = await prisma.integration.findUnique({
+      where: { userId_provider: { userId, provider: 'GOHIGHLEVEL' } },
+      select: { accountId: true },
+    });
+
     await prisma.integration.updateMany({
       where: { userId, provider: 'GOHIGHLEVEL' },
       data: {
@@ -150,6 +160,8 @@ export class GHLService {
         lastSyncError: null,
       },
     });
+
+    await auditService.logDisconnection(userId, 'GOHIGHLEVEL', integration?.accountId || undefined);
   }
 
   async getApiKey(userId: string): Promise<string | null> {
